@@ -1,0 +1,170 @@
+1  # Importing Libraries 
+2  import  pandas as pd
+3  import re
+4  import random
+5  from pylab import *
+6  import nltk, string
+7  from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
+8  from wordcloud import WordCloud, STOPWORDS
+9  import matplotlib.pyplot as plt
+10 from sklearn.metrics.pairwise import cosine_similarity
+11 from nltk.corpus import stopwords
+12 stop_words = set(stopwords.words('english'))
+13 
+14 nltk.download('punkt') # to download stemmer if it is not already installed
+15 stemmer = nltk.stem.porter.PorterStemmer() # calling constructor of stemmer
+16 
+17 # Documents to calculate similarity
+18 
+19 d1_path = "C:/Users/marius.cerbauskas/Desktop/article1.txt"
+20 d1_file = open(d1_path, 'r')
+21 d1 = d1_file.read()
+22 
+23 d2_path = "C:/Users/marius.cerbauskas/Desktop/article2.txt"
+24 d2_file = open(d2_path, 'r')
+25 d2 = d2_file.read()
+26 
+27 d3_path = "C:/Users/marius.cerbauskas/Desktop/article3.txt"
+28 d3_file = open(d3_path, 'r')
+29 d3 = d3_file.read()
+30 
+31 # # shuffle up words in d3 document
+32 # d3_read = d3_file.read()
+33 # d3_read = d3_read.split()
+34 # shuffle(d3_read)
+35 # d3 = ' '.join(d3_read)
+36 # print(d3)
+37 
+38 docs = [d1,d2,d3]
+39 
+40 
+41 # Writing functions for use
+42 
+43 def stem_tokens(tokens):
+44     
+45     '''
+46     this function stems words and return their root forms
+47     '''
+48     return [stemmer.stem(item) for item in tokens]
+49 
+50 '''removes punctuation, converts to lowercase, stems'''
+51 def normalize_a_text(text):
+52     '''
+53     this function nonrmalizes the text by:
+54     –– lowering it
+55     –– removing punctuations
+56     –– tokenizing it 
+57     –– removing stopwords 
+58     –– stemming it to root form
+59     '''
+60     text = text.lower()
+61     text = r  = re.sub(r'[^\w\s]',' ',text)
+62     tokens = nltk.word_tokenize(text)
+63     tokens = [token for token in tokens if token not in stop_words]
+64     return stem_tokens(tokens)
+65 
+66 # vectorizer = TfidfVectorizer(tokenizer=normalize_a_text, stop_words='english')
+67 # tfidf = vectorizer.fit_transform([d1,d2,d3])
+68 
+69 def CountFrequency(my_list):
+70     '''
+71     this function returns term count from given list
+72     '''
+73   
+74     # Creating an empty dictionary  
+75     freq = {} 
+76     for item in my_list: 
+77         if (item in freq): 
+78             freq[item] += 1
+79         else: 
+80             freq[item] = 1
+81 
+82     return freq
+83 
+84 def plot_word_cloud(data, title = None):
+85     
+86     '''
+87     this function prints the wordcloud of documents
+88     data: corpus/documents for which wordcloud has to be plotted
+89     title: title for the plot
+90     '''
+91     wordcloud = WordCloud(
+92         background_color='white',
+93         stopwords=stop_words,
+94         max_words=200,
+95         max_font_size=40, 
+96         scale=3,
+97         random_state=1 # chosen at random by flipping a coin; it was heads
+98     ).generate(str(data))
+99 
+100    fig = plt.figure(1, figsize=(12, 12))
+101    plt.axis('off')
+102    if title: 
+103        fig.suptitle(title, fontsize=20)
+104        fig.subplots_adjust(top=0.7)
+105
+106    plt.imshow(wordcloud)
+107    plt.show()
+108    return plt
+109
+110 def jaccard_similarity(a, b):
+111    '''
+112    this function returns the jaccard similarity 
+113    '''
+114    c = a.intersection(b)
+115    return float(len(c)) / (len(a) + len(b) – len(c))
+116
+117 # Calculating Similarity
+118
+119 # Vectorizing our text data by calculating term frequency
+120 # vectorizing documents
+121 vectorizer = CountVectorizer(tokenizer=normalize_a_text)
+122 # calculating tfidf
+123 tfidf = vectorizer.fit_transform(docs)
+124
+125 # calculating cosine similarities between documents
+126 cs = {}
+127 cs['d1 –> d3'] = cosine_similarity(tfidf)[0][2]
+128 cs['d1 –> d2'] = cosine_similarity(tfidf)[0][1]
+129 cs['d2 –> d3'] = cosine_similarity(tfidf)[1][2]
+130
+131 # calculating jaccard similarities between documents
+132 js = {}
+133
+134 js['d1 –> d3'] = jaccard_similarity(set(normalize_a_text(d3)),set(normalize_a_text(d1)))
+135 js['d1 –> d2'] = jaccard_similarity(set(normalize_a_text(d1)),set(normalize_a_text(d2)))
+136 js['d2 –> d3'] = jaccard_similarity(set(normalize_a_text(d2)),set(normalize_a_text(d3)))
+137
+138 sim_df = pd.DataFrame(index = list(cs.keys()))
+139 sim_df['cosine'] = pd.Series(cs)
+140 sim_df['jaccard'] = pd.Series(js)
+141 print(sim_df)
+142
+143 plt.figure(figsize=(12,8))
+144 plt.plot(sim_df.index, sim_df.cosine)
+145 plt.plot(sim_df.index, sim_df.jaccard)
+146 plt.title('')
+147 plt.savefig('similarity result comparisons.png')
+148 sim_df.plot(figsize = (8,4),rot = 0,title = 'panasumu lyginimas tarp dokumentu')
+149
+150
+151 # Have a look at most frequent words from the data
+152
+153 wordcloud = plot_word_cloud(docs,'dazniausiai pasikartojantys zodziai')
+154 # wordcloud.savefig('wordcloud.png')
+155
+156 # Let's have a look at most frequent term with term rank and freqeuncy  
+157
+158 dicts = [CountFrequency(normalize_a_text(doc)) for doc in docs]
+159 freq_df = pd.DataFrame(index = vectorizer.vocabulary_.keys())
+160 freq_df['d1'] = pd.Series(dicts[0])
+161 freq_df['d2'] = pd.Series(dicts[1])
+162 freq_df['d3'] = pd.Series(dicts[2])
+163 freq_df.fillna(0,inplace = True)
+164 freq_df['visas daznis'] = freq_df.d1 + freq_df.d2 + freq_df.d3
+165
+166 # selecting top five common words
+167 __d =  freq_df[freq_df['visas daznis'] != 0].iloc[0:5]
+168 __d.sort_values(['visas daznis','d1','d2','d3'])
+169 __d.plot.bar(rot=0,figsize=(14,6),title = 'dazniausiai pasitaikantys zodziai visuose dokumentuose')
+170 plt.savefig('common_word_bar_comparison.png')
